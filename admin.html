@@ -8,30 +8,36 @@
 </head>
 <body>
 
-  <h1>Διαχείριση QR Menu</h1>
+  <main class="admin-page">
 
-  <form id="productForm" class="admin-form">
+    <h1>Διαχείριση QR Menu</h1>
 
-    <label>Κατηγορία</label>
-    <select id="category_id" required></select>
+    <form id="productForm" class="admin-form">
 
-    <label>Όνομα προϊόντος</label>
-    <input type="text" id="name" required>
+      <label for="category_id">Κατηγορία</label>
+      <select id="category_id" required>
+        <option value="">Φόρτωση κατηγοριών...</option>
+      </select>
 
-    <label>Περιγραφή</label>
-    <textarea id="description"></textarea>
+      <label for="name">Όνομα προϊόντος</label>
+      <input type="text" id="name" required placeholder="π.χ. Freddo Espresso">
 
-    <label>Τιμή</label>
-    <input type="number" step="0.01" id="price" required>
+      <label for="description">Περιγραφή</label>
+      <textarea id="description" placeholder="π.χ. Διπλός espresso με πάγο"></textarea>
 
-    <label>Image URL</label>
-    <input type="text" id="image_url">
+      <label for="price">Τιμή</label>
+      <input type="number" step="0.01" min="0" id="price" required placeholder="π.χ. 2.50">
 
-    <button type="submit">Προσθήκη προϊόντος</button>
+      <label for="image_url">Image URL</label>
+      <input type="url" id="image_url" placeholder="https://...">
 
-  </form>
+      <button type="submit">Προσθήκη προϊόντος</button>
 
-  <div id="message"></div>
+    </form>
+
+    <div id="message"></div>
+
+  </main>
 
   <script src="admin.js?v=4"></script>
 </body>
