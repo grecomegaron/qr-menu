@@ -1,6 +1,5 @@
 /************************************************************
- * QR MENU ADMIN JS
- * Αρχείο: admin.js
+ * QR MENU ADMIN JS - JSONP VERSION
  ************************************************************/
 
 const API_URL = "https://script.google.com/macros/s/AKfycbyYxtRQPX2w3ku1ZQiAaNNETKVSlIOoHcjo_RaPMbrYI3TxCE0Qt9chmng0p8ws1Q4S/exec";
@@ -9,10 +8,50 @@ document.addEventListener("DOMContentLoaded", () => {
   loadCategories();
 
   const form = document.getElementById("productForm");
+
   if (form) {
     form.addEventListener("submit", handleProductSubmit);
   }
 });
+
+/************************************************************
+ * JSONP REQUEST
+ ************************************************************/
+
+function jsonpRequest(params) {
+  return new Promise((resolve, reject) => {
+    const callbackName = "jsonp_callback_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+
+    params.callback = callbackName;
+
+    const query = new URLSearchParams(params).toString();
+    const script = document.createElement("script");
+
+    window[callbackName] = function(data) {
+      resolve(data);
+
+      delete window[callbackName];
+
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+
+    script.onerror = function() {
+      reject(new Error("JSONP request failed"));
+
+      delete window[callbackName];
+
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+
+    script.src = API_URL + "?" + query;
+
+    document.body.appendChild(script);
+  });
+}
 
 /************************************************************
  * LOAD CATEGORIES
@@ -20,15 +59,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
 async function loadCategories() {
   const categorySelect = document.getElementById("category_id");
-  const messageBox = document.getElementById("message");
 
   if (!categorySelect) return;
 
   categorySelect.innerHTML = `<option value="">Φόρτωση κατηγοριών...</option>`;
 
   try {
-    const response = await fetch(`${API_URL}?action=getMenu`);
-    const data = await response.json();
+    const data = await jsonpRequest({
+      action: "getMenu"
+    });
 
     if (!data.success) {
       categorySelect.innerHTML = `<option value="">Σφάλμα φόρτωσης</option>`;
@@ -53,13 +92,9 @@ async function loadCategories() {
     });
 
   } catch (error) {
-    console.error("Load categories error:", error);
-
+    console.error(error);
     categorySelect.innerHTML = `<option value="">Σφάλμα σύνδεσης</option>`;
-
-    if (messageBox) {
-      showMessage("Δεν έγινε σύνδεση με το Google Apps Script", "error");
-    }
+    showMessage("Σφάλμα σύνδεσης με το Apps Script", "error");
   }
 }
 
@@ -93,23 +128,20 @@ async function handleProductSubmit(event) {
     return;
   }
 
-  const params = new URLSearchParams({
-    action: "addProduct",
-    category_id: category_id,
-    name: name,
-    description: description,
-    price: price,
-    image_url: image_url
-  });
-
   try {
     if (button) {
       button.disabled = true;
       button.textContent = "Αποθήκευση...";
     }
 
-    const response = await fetch(`${API_URL}?${params.toString()}`);
-    const data = await response.json();
+    const data = await jsonpRequest({
+      action: "addProduct",
+      category_id: category_id,
+      name: name,
+      description: description,
+      price: price,
+      image_url: image_url
+    });
 
     if (!data.success) {
       showMessage(data.message || "Δεν αποθηκεύτηκε το προϊόν", "error");
@@ -123,7 +155,7 @@ async function handleProductSubmit(event) {
     await loadCategories();
 
   } catch (error) {
-    console.error("Add product error:", error);
+    console.error(error);
     showMessage("Σφάλμα σύνδεσης. Δεν αποθηκεύτηκε το προϊόν.", "error");
   } finally {
     if (button) {
@@ -134,7 +166,7 @@ async function handleProductSubmit(event) {
 }
 
 /************************************************************
- * MESSAGE HELPER
+ * MESSAGE
  ************************************************************/
 
 function showMessage(text, type) {
@@ -143,15 +175,7 @@ function showMessage(text, type) {
   if (!messageBox) return;
 
   messageBox.textContent = text;
-  messageBox.className = "";
-
-  if (type === "success") {
-    messageBox.classList.add("success");
-  }
-
-  if (type === "error") {
-    messageBox.classList.add("error");
-  }
+  messageBox.className = type || "";
 
   setTimeout(() => {
     messageBox.textContent = "";
