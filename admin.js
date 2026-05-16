@@ -19,6 +19,9 @@ async function loadCategories() {
 document.getElementById("productForm").addEventListener("submit", async function(e) {
   e.preventDefault();
 
+  const message = document.getElementById("message");
+  message.innerText = "Αποθήκευση...";
+
   const payload = {
     action: "addProduct",
     category_id: document.getElementById("category_id").value,
@@ -29,18 +32,29 @@ document.getElementById("productForm").addEventListener("submit", async function
     sort_order: 999
   };
 
-  const response = await fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
+  try {
+    const formData = new URLSearchParams();
+    formData.append("payload", JSON.stringify(payload));
 
-  const result = await response.json();
+    const response = await fetch(API_URL, {
+      method: "POST",
+      body: formData
+    });
 
-  document.getElementById("message").innerText = result.message;
+    const text = await response.text();
+    console.log(text);
 
-  if (result.success) {
-    document.getElementById("productForm").reset();
-    loadCategories();
+    const result = JSON.parse(text);
+
+    message.innerText = result.message;
+
+    if (result.success) {
+      document.getElementById("productForm").reset();
+      loadCategories();
+    }
+
+  } catch (error) {
+    message.innerText = "Σφάλμα: " + error.message;
   }
 });
 
