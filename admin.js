@@ -1,61 +1,120 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbyYxtRQPX2w3ku1ZQiAaNNETKVSlIOoHcjo_RaPMbrYI3TxCE0Qt9chmng0p8ws1Q4S/exec";
+function doGet(e) {
+  const action = e && e.parameter ? e.parameter.action : "";
 
-async function loadCategories() {
-  const response = await fetch(API_URL + "?action=getMenu");
-  const data = await response.json();
+  if (action === "getMenu") {
+    return getMenu_();
+  }
 
-  const select = document.getElementById("category_id");
-  select.innerHTML = "";
+  if (action === "addProduct") {
+    return addProduct_(e.parameter);
+  }
 
-  data.categories.forEach(category => {
-    select.innerHTML += `
-      <option value="${category.id}">
-        ${category.name}
-      </option>
-    `;
+  return json_({
+    success: false,
+    message: "Invalid action"
   });
 }
 
-document.getElementById("productForm").addEventListener("submit", async function(e) {
-  e.preventDefault();
+function getMenu_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  const message = document.getElementById("message");
-  message.innerText = "Αποθήκευση...";
+  const settingsSheet = ss.getSheetByName("Settings");
+  const categoriesSheet = ss.getSheetByName("Categories");
+  const productsSheet = ss.getSheetByName("Products");
 
-  const payload = {
-    action: "addProduct",
-    category_id: document.getElementById("category_id").value,
-    name: document.getElementById("name").value,
-    description: document.getElementById("description").value,
-    price: document.getElementById("price").value,
-    image_url: document.getElementById("image_url").value,
-    sort_order: 999
-  };
+  if (!settingsSheet || !categoriesSheet || !productsSheet) {
+    return json_({
+      success: false,
+      message: "Λείπει κάποιο από τα sheets: Settings, Categories ή Products"
+    });
+  }
 
-  try {
-    const formData = new URLSearchParams();
-    formData.append("payload", JSON.stringify(payload));
+  const settings = sheetToObjects_(settingsSheet);
+  const categories = sheetToObjects_(categoriesSheet);
+  const products = sheetToObjects_(productsSheet);
 
-    const response = await fetch(API_URL, {
-      method: "POST",
-      body: formData
+  const settingsObj = {};
+
+  settings.forEach(row => {
+    if (row.key) {
+      settingsObj[String(row.key).trim()] = row.value;
+    }
+  });
+
+  return json_({
+    success: true,
+    settings: settingsObj,
+    categories: categories
+      .filter(c => String(c.active).trim().toUpperCase() === "TRUE")
+      .sort((a, b) => Number(a.sort_order || 999) - Number(b.sort_order || 999)),
+    products: products
+      .filter(p => String(p.active).trim().toUpperCase() === "TRUE")
+      .sort((a, b) => Number(a.sort_order || 999) - Number(b.sort_order || 999))
+  });
+}
+
+function addProduct_(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Products");
+
+  if (!sheet) {
+    return json_({
+      success: false,
+      message: "Δεν βρέθηκε το sheet Products"
+    });
+  }
+
+  if (!data.name) {
+    return json_({
+      success: false,
+      message: "Λείπει το όνομα προϊόντος"
+    });
+  }
+
+  const id = "p" + new Date().getTime();
+
+  const price = data.price ? Number(String(data.price).replace(",", ".")) : "";
+
+  sheet.appendRow([
+    id,
+    data.category_id || "",
+    data.name || "",
+    data.description || "",
+    price,
+    data.image_url || "",
+    "TRUE",
+    data.sort_order || 999
+  ]);
+
+  return json_({
+    success: true,
+    message: "Το προϊόν προστέθηκε",
+    id: id
+  });
+}
+
+function sheetToObjects_(sheet) {
+  const values = sheet.getDataRange().getValues();
+
+  if (values.length < 2) {
+    return [];
+  }
+
+  const headers = values.shift().map(h => String(h).trim());
+
+  return values.map(row => {
+    const obj = {};
+
+    headers.forEach((header, i) => {
+      obj[header] = row[i];
     });
 
-    const text = await response.text();
-    console.log(text);
+    return obj;
+  });
+}
 
-    const result = JSON.parse(text);
-
-    message.innerText = result.message;
-
-    if (result.success) {
-      document.getElementById("productForm").reset();
-      loadCategories();
-    }
-
-  } catch (error) {
-    message.innerText = "Σφάλμα: " + error.message;
-  }
-});
-
-loadCategories();
+function json_(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
